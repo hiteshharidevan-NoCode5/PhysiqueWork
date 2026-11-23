@@ -1,0 +1,39 @@
+name: Build PhysiqueWork APK and ZIP
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Initialize missing platform files if needed
+        run: flutter create --project-name physiquework --org com.nocode5 .
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build Android APK
+        run: flutter build apk --release
+
+      - name: Package identical APK and ZIP names
+        run: |
+          mkdir -p release_assets
+          cp build/app/outputs/flutter-apk/app-release.apk release_assets/PhysiqueWork.apk
+          zip -r release_assets/PhysiqueWork.zip lib pubspec.yaml README.md
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: PhysiqueWork-Build
+          path: release_assets/
