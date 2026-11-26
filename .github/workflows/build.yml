@@ -1,4 +1,4 @@
-name: Build PhysiqueWork APK and ZIP
+name: Build SculpT APK and ZIP
 
 on:
   push:
@@ -18,10 +18,13 @@ jobs:
           channel: 'stable'
 
       - name: Initialize missing platform files if needed
-        run: flutter create --project-name physiquework --org com.nocode5 .
+        run: flutter create --project-name sculpt --org com.nocode5 .
 
       - name: Get dependencies
         run: flutter pub get
+
+      - name: Generate Launcher Icons
+        run: dart run flutter_launcher_icons
 
       - name: Build Android APK
         run: flutter build apk --release
@@ -29,11 +32,11 @@ jobs:
       - name: Package identical APK and ZIP names
         run: |
           mkdir -p release_assets
-          cp build/app/outputs/flutter-apk/app-release.apk release_assets/PhysiqueWork.apk
-          zip -r release_assets/PhysiqueWork.zip lib pubspec.yaml README.md
+          cp build/app/outputs/flutter-apk/app-release.apk release_assets/SculpT.apk
+          zip -r release_assets/SculpT.zip lib assets pubspec.yaml README.md
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: PhysiqueWork-Build
+          name: SculpT-Build
           path: release_assets/

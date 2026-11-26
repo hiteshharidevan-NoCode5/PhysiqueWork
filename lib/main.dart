@@ -3,16 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 void main() {
-  runApp(const PhysiqueWorkApp());
+  runApp(const SculpTApp());
 }
 
-class PhysiqueWorkApp extends StatelessWidget {
-  const PhysiqueWorkApp({super.key});
+class SculpTApp extends StatelessWidget {
+  const SculpTApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'PhysiqueWork',
+      title: 'SculpT',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -62,10 +62,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Physique Assessment Inputs (0.0 to 1.0 normalized markers)
   File? _selectedImage;
-  double _shoulderMarker = 0.72; // Width perception
-  double _waistMarker = 0.52;    // Midsection width
-  double _postureSlouch = 0.40;  // Forward shoulder/head lean
-  double _lowerBodyBalance = 0.50; // Upper vs lower leg development
+  double _shoulderMarker = 0.72;
+  double _waistMarker = 0.52;
+  double _postureSlouch = 0.40;
+  double _lowerBodyBalance = 0.50;
 
   // Occupational Profile
   String _selectedOccupation = 'Desk & Computer Work';
@@ -252,19 +252,19 @@ class _HomeScreenState extends State<HomeScreen> {
     final List<String> notes = [];
 
     if (ratio < 1.35) {
-      notes.add('• **Upper Frame:** Prioritizing side delts and lats will create stronger shoulder-to-waist contrast.');
+      notes.add('• Upper Frame: Prioritizing side delts and lats will create stronger shoulder-to-waist contrast.');
     } else if (ratio < 1.55) {
-      notes.add('• **Upper Frame:** Balanced shoulder-to-waist ratio; focus on upper-chest and rear-delt detail.');
+      notes.add('• Upper Frame: Balanced shoulder-to-waist ratio; focus on upper-chest and rear-delt detail.');
     } else {
-      notes.add('• **Upper Frame:** Strong natural V-taper; maintain symmetry with lower body.');
+      notes.add('• Upper Frame: Strong natural V-taper; maintain symmetry with lower body.');
     }
 
     if (_postureSlouch > 0.45) {
-      notes.add('• **Posture Alignment:** Slight forward shoulder/head tendency detected—upper-back pulling will visibly improve stance.');
+      notes.add('• Posture Alignment: Slight forward shoulder/head tendency detected—upper-back pulling will visibly improve stance.');
     }
 
     if (_lowerBodyBalance < 0.50) {
-      notes.add('• **Lower-to-Upper Symmetry:** Adding targeted quad/glute volume will balance overall physique proportions.');
+      notes.add('• Lower-to-Upper Symmetry: Adding targeted quad/glute volume will balance overall physique proportions.');
     }
 
     return notes.join('\n');
@@ -280,7 +280,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('PhysiqueWork', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Row(
+          children: [
+            Text('SculpT', style: TextStyle(fontWeight: FontWeight.bold)),
+            SizedBox(width: 8),
+            Text('• Sculpt to the T', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w400)),
+          ],
+        ),
         centerTitle: false,
       ),
       body: pages[_currentIndex],
@@ -312,6 +318,60 @@ class _HomeScreenState extends State<HomeScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: SizedBox(
+            height: 210,
+            width: double.infinity,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Image.asset(
+                  'assets/sculpt_hero.png',
+                  fit: BoxFit.cover,
+                  alignment: Alignment.topCenter,
+                ),
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.75),
+                      ],
+                    ),
+                  ),
+                ),
+                const Positioned(
+                  left: 16,
+                  bottom: 14,
+                  right: 16,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'SCULPT TO THE T',
+                        style: TextStyle(
+                          color: Color(0xFF5EEAD4),
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.4,
+                          fontSize: 12,
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Shape your physique & build endurance for your daily work.',
+                        style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -335,14 +395,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       alignment: Alignment.center,
                       children: [
                         Image.file(_selectedImage!, height: 260, width: double.infinity, fit: BoxFit.cover),
-                        // Proportion guide overlay
                         Positioned(
                           top: 65,
                           left: 30,
                           right: 30,
                           child: Container(
                             height: 2,
-                            color: Colors.tealAccent.withOpacity(0.85),
+                            color: Colors.tealAccent.withValues(alpha: 0.85),
                           ),
                         ),
                         Positioned(
@@ -351,7 +410,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           right: 60,
                           child: Container(
                             height: 2,
-                            color: Colors.amberAccent.withOpacity(0.85),
+                            color: Colors.amberAccent.withValues(alpha: 0.85),
                           ),
                         ),
                       ],
@@ -359,7 +418,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   )
                 else
                   Container(
-                    height: 140,
+                    height: 110,
                     width: double.infinity,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
@@ -368,9 +427,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: const Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.person_search, size: 42),
-                        SizedBox(height: 8),
-                        Text('No photo loaded — using proportion sliders below'),
+                        Icon(Icons.person_search, size: 36),
+                        SizedBox(height: 6),
+                        Text('No photo loaded — using proportion sliders below', style: TextStyle(fontSize: 13)),
                       ],
                     ),
                   ),
