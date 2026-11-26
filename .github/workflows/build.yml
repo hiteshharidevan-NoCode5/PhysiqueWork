@@ -20,6 +20,9 @@ jobs:
       - name: Initialize missing platform files if needed
         run: flutter create --project-name sculpt --org com.nocode5 .
 
+      - name: Set exact Android app label to SculpT
+        run: sed -i 's/android:label="sculpt"/android:label="SculpT"/g' android/app/src/main/AndroidManifest.xml
+
       - name: Get dependencies
         run: flutter pub get
 

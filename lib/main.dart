@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -19,6 +20,7 @@ class SculpTApp extends StatelessWidget {
           seedColor: const Color(0xFF0F766E),
           brightness: Brightness.light,
         ),
+        scaffoldBackgroundColor: Colors.transparent,
         useMaterial3: true,
       ),
       darkTheme: ThemeData(
@@ -26,6 +28,7 @@ class SculpTApp extends StatelessWidget {
           seedColor: const Color(0xFF14B8A6),
           brightness: Brightness.dark,
         ),
+        scaffoldBackgroundColor: Colors.transparent,
         useMaterial3: true,
       ),
       themeMode: ThemeMode.system,
@@ -48,6 +51,55 @@ class ExerciseItem {
     required this.purpose,
     required this.category,
   });
+}
+
+class GlassCard extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  final EdgeInsetsGeometry? margin;
+  final bool highlighted;
+
+  const GlassCard({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(16),
+    this.margin,
+    this.highlighted = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseColor = highlighted
+        ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: isDark ? 0.55 : 0.72)
+        : (isDark
+            ? const Color(0xFF0B1416).withValues(alpha: 0.58)
+            : Colors.white.withValues(alpha: 0.74));
+    final borderColor = highlighted
+        ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.55)
+        : (isDark
+            ? Colors.tealAccent.withValues(alpha: 0.18)
+            : const Color(0xFF0F766E).withValues(alpha: 0.22));
+
+    return Container(
+      margin: margin,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            padding: padding,
+            decoration: BoxDecoration(
+              color: baseColor,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: borderColor, width: 1),
+            ),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class HomeScreen extends StatefulWidget {
@@ -272,45 +324,84 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final pages = [
       _buildPhysiqueTab(),
       _buildOccupationTab(),
       _buildCombinedPlanTab(),
     ];
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Row(
-          children: [
-            Text('SculpT', style: TextStyle(fontWeight: FontWeight.bold)),
-            SizedBox(width: 8),
-            Text('• Sculpt to the T', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w400)),
-          ],
+    return Stack(
+      children: [
+        // 1. Full-screen background showing the entire teal self-sculptor image
+        Positioned.fill(
+          child: Container(
+            color: isDark ? const Color(0xFF071113) : const Color(0xFFE6F2F1),
+            child: Image.asset(
+              'assets/sculpt_hero.png',
+              fit: BoxFit.contain,
+              alignment: Alignment.center,
+            ),
+          ),
         ),
-        centerTitle: false,
-      ),
-      body: pages[_currentIndex],
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (idx) => setState(() => _currentIndex = idx),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.accessibility_new_outlined),
-            selectedIcon: Icon(Icons.accessibility_new),
-            label: 'Physique',
+        // 2. Subtle theme-adaptive veil so foreground text stays legible in both Light & Dark themes
+        Positioned.fill(
+          child: Container(
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.35)
+                : Colors.white.withValues(alpha: 0.38),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.work_outline),
-            selectedIcon: Icon(Icons.work),
-            label: 'Work Role',
+        ),
+        // 3. Translucent Scaffold, AppBar, and NavigationBar
+        Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: AppBar(
+            backgroundColor: isDark
+                ? const Color(0xFF0B1416).withValues(alpha: 0.65)
+                : Colors.white.withValues(alpha: 0.72),
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            title: const Row(
+              children: [
+                Text('SculpT', style: TextStyle(fontWeight: FontWeight.bold)),
+                SizedBox(width: 8),
+                Text('• Sculpt to the T', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w400)),
+              ],
+            ),
+            centerTitle: false,
           ),
-          NavigationDestination(
-            icon: Icon(Icons.checklist_outlined),
-            selectedIcon: Icon(Icons.checklist),
-            label: 'My Routine',
+          body: pages[_currentIndex],
+          bottomNavigationBar: ClipRRect(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: NavigationBar(
+                backgroundColor: isDark
+                    ? const Color(0xFF0B1416).withValues(alpha: 0.70)
+                    : Colors.white.withValues(alpha: 0.78),
+                selectedIndex: _currentIndex,
+                onDestinationSelected: (idx) => setState(() => _currentIndex = idx),
+                destinations: const [
+                  NavigationDestination(
+                    icon: Icon(Icons.accessibility_new_outlined),
+                    selectedIcon: Icon(Icons.accessibility_new),
+                    label: 'Physique',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.work_outline),
+                    selectedIcon: Icon(Icons.work),
+                    label: 'Work Role',
+                  ),
+                  NavigationDestination(
+                    icon: Icon(Icons.checklist_outlined),
+                    selectedIcon: Icon(Icons.checklist),
+                    label: 'My Routine',
+                  ),
+                ],
+              ),
+            ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -318,180 +409,119 @@ class _HomeScreenState extends State<HomeScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: SizedBox(
-            height: 210,
-            width: double.infinity,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Image.asset(
-                  'assets/sculpt_hero.png',
-                  fit: BoxFit.cover,
-                  alignment: Alignment.topCenter,
-                ),
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withValues(alpha: 0.75),
-                      ],
-                    ),
-                  ),
-                ),
-                const Positioned(
-                  left: 16,
-                  bottom: 14,
-                  right: 16,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+        GlassCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '1. Visual Physique Check (On-Device)',
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Load a front-facing photo (stays 100% private on your phone) or adjust the proportion sliders below.',
+                style: TextStyle(fontSize: 13),
+              ),
+              const SizedBox(height: 12),
+              if (_selectedImage != null)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Stack(
+                    alignment: Alignment.center,
                     children: [
-                      Text(
-                        'SCULPT TO THE T',
-                        style: TextStyle(
-                          color: Color(0xFF5EEAD4),
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.4,
-                          fontSize: 12,
+                      Image.file(_selectedImage!, height: 260, width: double.infinity, fit: BoxFit.cover),
+                      Positioned(
+                        top: 65,
+                        left: 30,
+                        right: 30,
+                        child: Container(
+                          height: 2,
+                          color: Colors.tealAccent.withValues(alpha: 0.85),
                         ),
                       ),
-                      SizedBox(height: 2),
-                      Text(
-                        'Shape your physique & build endurance for your daily work.',
-                        style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w500),
+                      Positioned(
+                        top: 145,
+                        left: 60,
+                        right: 60,
+                        child: Container(
+                          height: 2,
+                          color: Colors.amberAccent.withValues(alpha: 0.85),
+                        ),
                       ),
                     ],
                   ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 14),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '1. Visual Physique Check (On-Device)',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Load a front-facing photo (stays 100% private on your phone) or adjust the proportion sliders below.',
-                  style: TextStyle(fontSize: 13),
-                ),
-                const SizedBox(height: 12),
-                if (_selectedImage != null)
-                  ClipRRect(
+                )
+              else
+                Container(
+                  height: 100,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(12),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        Image.file(_selectedImage!, height: 260, width: double.infinity, fit: BoxFit.cover),
-                        Positioned(
-                          top: 65,
-                          left: 30,
-                          right: 30,
-                          child: Container(
-                            height: 2,
-                            color: Colors.tealAccent.withValues(alpha: 0.85),
-                          ),
-                        ),
-                        Positioned(
-                          top: 145,
-                          left: 60,
-                          right: 60,
-                          child: Container(
-                            height: 2,
-                            color: Colors.amberAccent.withValues(alpha: 0.85),
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                else
-                  Container(
-                    height: 110,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-                    ),
-                    child: const Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.person_search, size: 36),
-                        SizedBox(height: 6),
-                        Text('No photo loaded — using proportion sliders below', style: TextStyle(fontSize: 13)),
-                      ],
+                    border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+                  ),
+                  child: const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.person_search, size: 34),
+                      SizedBox(height: 6),
+                      Text('No photo loaded — using proportion sliders below', style: TextStyle(fontSize: 13)),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _pickPhoto(ImageSource.gallery),
+                      icon: const Icon(Icons.photo_library),
+                      label: const Text('Gallery'),
                     ),
                   ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _pickPhoto(ImageSource.gallery),
-                        icon: const Icon(Icons.photo_library),
-                        label: const Text('Gallery'),
-                      ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _pickPhoto(ImageSource.camera),
+                      icon: const Icon(Icons.camera_alt),
+                      label: const Text('Camera'),
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        onPressed: () => _pickPhoto(ImageSource.camera),
-                        icon: const Icon(Icons.camera_alt),
-                        label: const Text('Camera'),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '2. Fine-Tune Proportion & Posture Markers',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 10),
-                _buildSlider('Shoulder Width', _shoulderMarker, (v) => setState(() => _shoulderMarker = v)),
-                _buildSlider('Waist Width', _waistMarker, (v) => setState(() => _waistMarker = v)),
-                _buildSlider('Forward Slouch / Tech Neck', _postureSlouch, (v) => setState(() => _postureSlouch = v)),
-                _buildSlider('Lower-Body Development', _lowerBodyBalance, (v) => setState(() => _lowerBodyBalance = v)),
-              ],
-            ),
+        GlassCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '2. Fine-Tune Proportion & Posture Markers',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 10),
+              _buildSlider('Shoulder Width', _shoulderMarker, (v) => setState(() => _shoulderMarker = v)),
+              _buildSlider('Waist Width', _waistMarker, (v) => setState(() => _waistMarker = v)),
+              _buildSlider('Forward Slouch / Tech Neck', _postureSlouch, (v) => setState(() => _postureSlouch = v)),
+              _buildSlider('Lower-Body Development', _lowerBodyBalance, (v) => setState(() => _lowerBodyBalance = v)),
+            ],
           ),
         ),
         const SizedBox(height: 12),
-        Card(
-          color: Theme.of(context).colorScheme.secondaryContainer,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Physique Assessment', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                Text(_getPhysiqueInsight()),
-              ],
-            ),
+        GlassCard(
+          highlighted: true,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Physique Assessment', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text(_getPhysiqueInsight()),
+            ],
           ),
         ),
+        // Bottom breathing room so you can scroll and admire the full statue base
+        const SizedBox(height: 140),
       ],
     );
   }
@@ -519,20 +549,28 @@ class _HomeScreenState extends State<HomeScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        const Text(
-          'Select Your Primary Daily Work',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        GlassCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Select Your Primary Daily Work',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'We target muscles that either carry heavy daily fatigue or become weak from your work posture.',
+                style: TextStyle(fontSize: 13),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 6),
-        const Text(
-          'We target muscles that either carry heavy daily fatigue or become weak from your work posture.',
-          style: TextStyle(fontSize: 13),
-        ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         ..._occupations.entries.map((entry) {
           final isSelected = entry.key == _selectedOccupation;
-          return Card(
-            color: isSelected ? Theme.of(context).colorScheme.primaryContainer : null,
+          return GlassCard(
+            highlighted: isSelected,
+            padding: EdgeInsets.zero,
             margin: const EdgeInsets.only(bottom: 10),
             child: ListTile(
               leading: Icon(entry.value['icon'] as IconData),
@@ -543,24 +581,22 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           );
         }),
-        const SizedBox(height: 12),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Priority Functional Muscles', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: muscles.map((m) => Chip(label: Text(m))).toList(),
-                ),
-              ],
-            ),
+        const SizedBox(height: 4),
+        GlassCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Priority Functional Muscles', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: muscles.map((m) => Chip(label: Text(m))).toList(),
+              ),
+            ],
           ),
         ),
+        const SizedBox(height: 140),
       ],
     );
   }
@@ -573,54 +609,60 @@ class _HomeScreenState extends State<HomeScreen> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Text(
-          'Your Tailored Plan (${allExercises.length} Exercises)',
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        GlassCard(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Your Tailored Plan (${allExercises.length} Exercises)',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Combines physique symmetry + $_selectedOccupation endurance.',
+                style: const TextStyle(fontSize: 13),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 4),
-        Text(
-          'Combines physique symmetry + $_selectedOccupation endurance.',
-          style: const TextStyle(fontSize: 13),
-        ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 12),
         ...allExercises.map((ex) {
           final isAesthetic = ex.category == 'Aesthetic';
-          return Card(
+          return GlassCard(
             margin: const EdgeInsets.only(bottom: 12),
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: isAesthetic
-                              ? Theme.of(context).colorScheme.tertiaryContainer
-                              : Theme.of(context).colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          isAesthetic ? 'Physique & Aesthetics' : 'Work Endurance',
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                        ),
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: isAesthetic
+                            ? Theme.of(context).colorScheme.tertiaryContainer.withValues(alpha: 0.85)
+                            : Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.85),
+                        borderRadius: BorderRadius.circular(6),
                       ),
-                      const Spacer(),
-                      Text(ex.setsReps, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(ex.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  Text('Target: ${ex.targetMuscle}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 6),
-                  Text(ex.purpose, style: const TextStyle(fontSize: 13)),
-                ],
-              ),
+                      child: Text(
+                        isAesthetic ? 'Physique & Aesthetics' : 'Work Endurance',
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const Spacer(),
+                    Text(ex.setsReps, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(ex.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text('Target: ${ex.targetMuscle}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                const SizedBox(height: 6),
+                Text(ex.purpose, style: const TextStyle(fontSize: 13)),
+              ],
             ),
           );
         }),
+        const SizedBox(height: 140),
       ],
     );
   }
