@@ -1,4 +1,4 @@
-name: Build SculpT APK and ZIP
+name: Build SculpT APK and PWA ZIP
 
 on:
   push:
@@ -17,11 +17,20 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Initialize missing platform files if needed
+      - name: Initialize platform files
         run: flutter create --project-name sculpt --org com.nocode5 .
 
-      - name: Set exact Android app label to SculpT
-        run: sed -i 's/android:label="sculpt"/android:label="SculpT"/g' android/app/src/main/AndroidManifest.xml
+      - name: Configure Android label and permissions
+        run: |
+          sed -i 's/android:label="sculpt"/android:label="SculpT"/g' android/app/src/main/AndroidManifest.xml
+          sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 21/g' android/app/build.gradle.kts || true
+          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/g' android/app/build.gradle || true
+
+      - name: Apply persistent signing keystore if present
+        run: |
+          if [ -f android_signing/sculpt.keystore ]; then
+            cp android_signing/sculpt.keystore ~/.android/debug.keystore
+          fi
 
       - name: Get dependencies
         run: flutter pub get
@@ -32,11 +41,14 @@ jobs:
       - name: Build Android APK
         run: flutter build apk --release
 
-      - name: Package identical APK and ZIP names
+      - name: Build PWA Web App
+        run: flutter build web --release --pwa-strategy=offline-first
+
+      - name: Package identical SculpT.apk and SculpT.zip (PWA + Source)
         run: |
           mkdir -p release_assets
           cp build/app/outputs/flutter-apk/app-release.apk release_assets/SculpT.apk
-          zip -r release_assets/SculpT.zip lib assets pubspec.yaml README.md
+          zip -r release_assets/SculpT.zip build/web lib assets pubspec.yaml README.md
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4

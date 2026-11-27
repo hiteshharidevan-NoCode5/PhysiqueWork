@@ -1,7 +1,10 @@
 import 'dart:io';
 import 'dart:ui';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'pose_analyzer.dart';
 
 void main() {
   runApp(const SculpTApp());
@@ -43,6 +46,7 @@ class ExerciseItem {
   final String setsReps;
   final String purpose;
   final String category;
+  final bool isPro;
 
   const ExerciseItem({
     required this.name,
@@ -50,6 +54,7 @@ class ExerciseItem {
     required this.setsReps,
     required this.purpose,
     required this.category,
+    this.isPro = false,
   });
 }
 
@@ -102,6 +107,48 @@ class GlassCard extends StatelessWidget {
   }
 }
 
+class SkeletonPainter extends CustomPainter {
+  final Map<String, Offset> points;
+  SkeletonPainter(this.points);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (points.isEmpty) return;
+
+    final linePaint = Paint()
+      ..color = const Color(0xFF2DD4BF)
+      ..strokeWidth = 3.0
+      ..style = PaintingStyle.stroke;
+
+    final dotPaint = Paint()
+      ..color = Colors.amberAccent
+      ..style = PaintingStyle.fill;
+
+    Offset toPx(Offset norm) => Offset(norm.dx * size.width, norm.dy * size.height);
+
+    void connect(String a, String b) {
+      if (points.containsKey(a) && points.containsKey(b)) {
+        canvas.drawLine(toPx(points[a]!), toPx(points[b]!), linePaint);
+      }
+    }
+
+    connect('lShoulder', 'rShoulder');
+    connect('lHip', 'rHip');
+    connect('lShoulder', 'lHip');
+    connect('rShoulder', 'rHip');
+    connect('lHip', 'lKnee');
+    connect('rHip', 'rKnee');
+    connect('lKnee', 'lAnkle');
+    connect('rKnee', 'rAnkle');
+
+    for (final pt in points.values) {
+      canvas.drawCircle(toPx(pt), 5.0, dotPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant SkeletonPainter oldDelegate) => oldDelegate.points != points;
+}
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -111,12 +158,40 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
-  File? _selectedImage;
+  XFile? _selectedImage;
+  bool _isScanning = false;
+  PoseAnalysisResult? _poseResult;
+
   double _shoulderMarker = 0.72;
   double _waistMarker = 0.52;
   double _postureSlouch = 0.40;
   double _lowerBodyBalance = 0.50;
+
   String _selectedOccupation = 'Desk & Computer Work';
+  Set<String> _completedExercises = {};
+  bool _isProUnlocked = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedProgress();
+  }
+
+  Future<void> _loadSavedProgress() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _selectedOccupation = prefs.getString('occupation') ?? 'Desk & Computer Work';
+      _completedExercises = (prefs.getStringList('completed') ?? []).toSet();
+      _isProUnlocked = prefs.getBool('isPro') ?? false;
+    });
+  }
+
+  Future<void> _saveProgress() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('occupation', _selectedOccupation);
+    await prefs.setStringList('completed', _completedExercises.toList());
+    await prefs.setBool('isPro', _isProUnlocked);
+  }
 
   final Map<String, Map<String, dynamic>> _occupations = {
     'Desk & Computer Work': {
@@ -145,6 +220,7 @@ class _HomeScreenState extends State<HomeScreen> {
           setsReps: '3 sets × 10 slow reps',
           purpose: 'Strengthens postural endurance for long screen sessions.',
           category: 'Occupational',
+          isPro: true,
         ),
       ],
     },
@@ -174,6 +250,7 @@ class _HomeScreenState extends State<HomeScreen> {
           setsReps: '3 sets × 10 each leg',
           purpose: 'Prevents hip drop and lower-back ache from prolonged standing.',
           category: 'Occupational',
+          isPro: true,
         ),
       ],
     },
@@ -196,6 +273,7 @@ class _HomeScreenState extends State<HomeScreen> {
           setsReps: '3 sets × 10 per side',
           purpose: 'Decompresses and stabilizes the lumbar spine.',
           category: 'Occupational',
+          isPro: true,
         ),
       ],
     },
@@ -218,20 +296,36 @@ class _HomeScreenState extends State<HomeScreen> {
           setsReps: '3 sets × 12 per side',
           purpose: 'Protects the spine during uneven lifting and twisting.',
           category: 'Occupational',
+          isPro: true,
         ),
       ],
     },
   };
-  Future<void> _pickPhoto(ImageSource source) async {
+
+  Future<void> _pickAndAnalyzePhoto(ImageSource source) async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: source, maxWidth: 1080);
-    if (picked != null) {
-      setState(() {
-        _selectedImage = File(picked.path);
-      });
-    }
-  }
+    if (picked == null) return;
 
+    setState(() {
+      _selectedImage = picked;
+      _isScanning = true;
+    });
+
+    final result = await SculptPoseEngine.analyzeImage(picked.path);
+
+    if (!mounted) return;
+    setState(() {
+      _isScanning = false;
+      _poseResult = result;
+      if (result.detected) {
+        _shoulderMarker = result.shoulderScore;
+        _waistMarker = result.waistScore;
+        _postureSlouch = result.slouchScore;
+        _lowerBodyBalance = result.lowerBodyScore;
+      }
+    });
+  }
   List<ExerciseItem> _computeAestheticExercises() {
     final List<ExerciseItem> list = [];
     final double vTaperRatio = _shoulderMarker / (_waistMarker < 0.2 ? 0.2 : _waistMarker);
@@ -250,6 +344,7 @@ class _HomeScreenState extends State<HomeScreen> {
         setsReps: '3 sets × 8-12 reps',
         purpose: 'Creates upper-back taper relative to the waist.',
         category: 'Aesthetic',
+        isPro: true,
       ));
     } else {
       list.add(const ExerciseItem(
@@ -288,6 +383,7 @@ class _HomeScreenState extends State<HomeScreen> {
         setsReps: '3 sets × 20 sec / 12 reps',
         purpose: 'Tightens the deep abdominal wall to trim waist profile.',
         category: 'Aesthetic',
+        isPro: true,
       ));
     }
 
@@ -298,6 +394,13 @@ class _HomeScreenState extends State<HomeScreen> {
     final double ratio = _shoulderMarker / (_waistMarker < 0.2 ? 0.2 : _waistMarker);
     final List<String> notes = [];
 
+    if (_poseResult != null && _poseResult!.detected) {
+      notes.add(
+        '• AI Landmark Ratio: ${_poseResult!.shoulderToHipRatio.toStringAsFixed(2)} shoulder-to-hip proportion '
+        '(${_poseResult!.shoulderTiltDegrees.toStringAsFixed(1)}° shoulder alignment).',
+      );
+    }
+
     if (ratio < 1.35) {
       notes.add('• Upper Frame: Prioritizing side delts and lats will create stronger shoulder-to-waist contrast.');
     } else if (ratio < 1.55) {
@@ -307,7 +410,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (_postureSlouch > 0.45) {
-      notes.add('• Posture Alignment: Slight forward shoulder/head tendency detected—upper-back pulling will visibly improve stance.');
+      notes.add('• Posture Alignment: Forward shoulder/head tendency detected—upper-back pulling will visibly improve stance.');
     }
 
     if (_lowerBodyBalance < 0.50) {
@@ -357,9 +460,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         if (isDark)
           Positioned.fill(
-            child: Container(
-              color: Colors.black.withValues(alpha: 0.25),
-            ),
+            child: Container(color: Colors.black.withValues(alpha: 0.25)),
           ),
         Scaffold(
           backgroundColor: Colors.transparent,
@@ -369,14 +470,19 @@ class _HomeScreenState extends State<HomeScreen> {
                 : Colors.white.withValues(alpha: 0.75),
             elevation: 0,
             scrolledUnderElevation: 0,
-            title: const Row(
+            title: Row(
               children: [
-                Text('SculpT', style: TextStyle(fontWeight: FontWeight.bold)),
-                SizedBox(width: 8),
-                Text('• Sculpt to the T', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w400)),
+                const Text('SculpT', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(width: 8),
+                const Text('• Sculpt to the T', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w400)),
+                const Spacer(),
+                if (_isProUnlocked)
+                  const Chip(
+                    label: Text('PRO', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    visualDensity: VisualDensity.compact,
+                  ),
               ],
             ),
-            centerTitle: false,
           ),
           body: pages[_currentIndex],
           bottomNavigationBar: ClipRRect(
@@ -421,35 +527,38 @@ class _HomeScreenState extends State<HomeScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                '1. Visual Physique Check (On-Device)',
+                '1. AI Physique Scanner (100% On-Device)',
                 style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 6),
               const Text(
-                'Load a front-facing photo (stays 100% private on your phone) or adjust the proportion sliders below.',
+                'Load a full-body front photo to automatically measure shoulder-to-hip proportions and posture alignment.',
                 style: TextStyle(fontSize: 13),
               ),
               const SizedBox(height: 12),
               if (_selectedImage != null)
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Image.file(_selectedImage!, height: 260, width: double.infinity, fit: BoxFit.cover),
-                      Positioned(
-                        top: 65,
-                        left: 30,
-                        right: 30,
-                        child: Container(height: 2, color: Colors.tealAccent.withValues(alpha: 0.85)),
-                      ),
-                      Positioned(
-                        top: 145,
-                        left: 60,
-                        right: 60,
-                        child: Container(height: 2, color: Colors.amberAccent.withValues(alpha: 0.85)),
-                      ),
-                    ],
+                  child: SizedBox(
+                    height: 280,
+                    width: double.infinity,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        kIsWeb
+                            ? Image.network(_selectedImage!.path, fit: BoxFit.cover)
+                            : Image.file(File(_selectedImage!.path), fit: BoxFit.cover),
+                        if (_poseResult != null && _poseResult!.detected)
+                          CustomPaint(
+                            painter: SkeletonPainter(_poseResult!.normalizedLandmarks),
+                          ),
+                        if (_isScanning)
+                          Container(
+                            color: Colors.black54,
+                            child: const Center(child: CircularProgressIndicator()),
+                          ),
+                      ],
+                    ),
                   ),
                 )
               else
@@ -465,16 +574,27 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       Icon(Icons.person_search, size: 34),
                       SizedBox(height: 6),
-                      Text('No photo loaded — using proportion sliders below', style: TextStyle(fontSize: 13)),
+                      Text('No photo loaded — scan a photo or use sliders below', style: TextStyle(fontSize: 13)),
                     ],
                   ),
                 ),
+              if (_poseResult != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _poseResult!.statusMessage,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: _poseResult!.detected ? const Color(0xFF14B8A6) : null,
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               Row(
                 children: [
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () => _pickPhoto(ImageSource.gallery),
+                      onPressed: () => _pickAndAnalyzePhoto(ImageSource.gallery),
                       icon: const Icon(Icons.photo_library),
                       label: const Text('Gallery'),
                     ),
@@ -482,7 +602,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () => _pickPhoto(ImageSource.camera),
+                      onPressed: () => _pickAndAnalyzePhoto(ImageSource.camera),
                       icon: const Icon(Icons.camera_alt),
                       label: const Text('Camera'),
                     ),
@@ -574,7 +694,10 @@ class _HomeScreenState extends State<HomeScreen> {
               title: Text(entry.key, style: const TextStyle(fontWeight: FontWeight.w600)),
               subtitle: Text(entry.value['summary'] as String, maxLines: 2, overflow: TextOverflow.ellipsis),
               trailing: isSelected ? const Icon(Icons.check_circle) : null,
-              onTap: () => setState(() => _selectedOccupation = entry.key),
+              onTap: () {
+                setState(() => _selectedOccupation = entry.key);
+                _saveProgress();
+              },
             ),
           );
         }),
@@ -602,6 +725,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final aestheticExercises = _computeAestheticExercises();
     final occupationalExercises = List<ExerciseItem>.from(_occupations[_selectedOccupation]!['exercises']);
     final allExercises = [...aestheticExercises, ...occupationalExercises];
+    final doneCount = allExercises.where((e) => _completedExercises.contains(e.name)).length;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -610,11 +734,23 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Your Tailored Plan (${allExercises.length} Exercises)',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Your Tailored Plan ($doneCount/${allExercises.length} Done)',
+                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                  ),
+                  if (doneCount > 0)
+                    TextButton(
+                      onPressed: () {
+                        setState(() => _completedExercises.clear());
+                        _saveProgress();
+                      },
+                      child: const Text('Reset'),
+                    ),
+                ],
               ),
-              const SizedBox(height: 4),
               Text(
                 'Combines physique symmetry + $_selectedOccupation endurance.',
                 style: const TextStyle(fontSize: 13),
@@ -625,9 +761,13 @@ class _HomeScreenState extends State<HomeScreen> {
         const SizedBox(height: 12),
         ...allExercises.map((ex) {
           final isAesthetic = ex.category == 'Aesthetic';
+          final isLocked = ex.isPro && !_isProUnlocked;
+          final isDone = _completedExercises.contains(ex.name);
+
           return GlassCard(
             margin: const EdgeInsets.only(bottom: 12),
             padding: const EdgeInsets.all(14),
+            highlighted: isDone,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -647,18 +787,69 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                     const Spacer(),
-                    Text(ex.setsReps, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                    if (isLocked)
+                      const Icon(Icons.lock_outline, size: 18)
+                    else
+                      Checkbox(
+                        value: isDone,
+                        onChanged: (val) {
+                          setState(() {
+                            if (val == true) {
+                              _completedExercises.add(ex.name);
+                            } else {
+                              _completedExercises.remove(ex.name);
+                            }
+                          });
+                          _saveProgress();
+                        },
+                      ),
                   ],
                 ),
-                const SizedBox(height: 8),
-                Text(ex.name, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                Text('Target: ${ex.targetMuscle}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                Text(
+                  isLocked ? '${ex.name} (SculpT Pro)' : ex.name,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    decoration: isDone ? TextDecoration.lineThrough : null,
+                  ),
+                ),
+                Text(
+                  'Target: ${ex.targetMuscle} • ${ex.setsReps}',
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                ),
                 const SizedBox(height: 6),
-                Text(ex.purpose, style: const TextStyle(fontSize: 13)),
+                Text(
+                  isLocked ? 'Unlock SculpT Pro to reveal full corrective cues & progressions.' : ex.purpose,
+                  style: const TextStyle(fontSize: 13),
+                ),
               ],
             ),
           );
         }),
+        if (!_isProUnlocked)
+          GlassCard(
+            highlighted: true,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Unlock SculpT Pro', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                const Text(
+                  'Access all advanced corrective & aesthetic hypertrophy movements plus unlimited AI scans.',
+                  style: TextStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 10),
+                FilledButton.icon(
+                  onPressed: () {
+                    setState(() => _isProUnlocked = true);
+                    _saveProgress();
+                  },
+                  icon: const Icon(Icons.bolt),
+                  label: const Text('Preview Pro Unlock (Free Demo)'),
+                ),
+              ],
+            ),
+          ),
         const SizedBox(height: 160),
       ],
     );
