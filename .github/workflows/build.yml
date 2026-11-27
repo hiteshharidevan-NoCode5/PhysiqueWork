@@ -1,9 +1,14 @@
-name: Build SculpT APK and PWA ZIP
+name: Build SculpT APK, ZIP, and Deploy PWA
 
 on:
   push:
     branches: [ main ]
   workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
 jobs:
   build:
@@ -29,20 +34,63 @@ jobs:
       - name: Generate Launcher Icons
         run: dart run flutter_launcher_icons
 
+      - name: Customize PWA Manifest, Icons, and Title
+        run: |
+          cp assets/sculpt_icon.png web/icons/Icon-192.png
+          cp assets/sculpt_icon.png web/icons/Icon-512.png
+          cp assets/sculpt_icon.png web/icons/Icon-maskable-192.png
+          cp assets/sculpt_icon.png web/icons/Icon-maskable-512.png
+          cp assets/sculpt_icon.png web/favicon.png
+          cat << 'MANIFEST' > web/manifest.json
+          {
+            "name": "SculpT - Sculpt to the T",
+            "short_name": "SculpT",
+            "start_url": ".",
+            "display": "standalone",
+            "background_color": "#000000",
+            "theme_color": "#0F766E",
+            "description": "Sculpt yourself to a T - Aesthetic physique & occupational endurance advisor.",
+            "orientation": "portrait-primary",
+            "prefer_related_applications": false,
+            "icons": [
+              { "src": "icons/Icon-192.png", "sizes": "192x192", "type": "image/png" },
+              { "src": "icons/Icon-512.png", "sizes": "512x512", "type": "image/png" },
+              { "src": "icons/Icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+              { "src": "icons/Icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+            ]
+          }
+          MANIFEST
+
       - name: Build Android APK
         run: flutter build apk --release
 
-      - name: Build PWA Web App
-        run: flutter build web --release --pwa-strategy=offline-first
+      - name: Build PWA Web App for GitHub Pages
+        run: flutter build web --release --base-href "/SculpT/" --pwa-strategy=offline-first
 
-      - name: Package identical SculpT.apk and SculpT.zip (PWA + Source)
+      - name: Package identical SculpT.apk and SculpT.zip
         run: |
           mkdir -p release_assets
           cp build/app/outputs/flutter-apk/app-release.apk release_assets/SculpT.apk
           zip -r release_assets/SculpT.zip build/web lib assets pubspec.yaml README.md
 
-      - name: Upload Artifacts
+      - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: SculpT-Build
           path: release_assets/
+
+      - name: Upload PWA Pages Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+  deploy-pwa:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy PWA to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
