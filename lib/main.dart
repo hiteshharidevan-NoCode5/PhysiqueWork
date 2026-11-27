@@ -312,7 +312,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _isScanning = true;
     });
 
-    final result = await SculptPoseEngine.analyzeImage(picked.path);
+    final result = await SculptPoseEngine.analyzeBytes(await picked.readAsBytes());
 
     if (!mounted) return;
     setState(() {

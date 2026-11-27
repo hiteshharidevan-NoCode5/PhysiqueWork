@@ -20,16 +20,8 @@ jobs:
       - name: Initialize platform files
         run: flutter create --project-name sculpt --org com.nocode5 .
 
-      - name: Configure Android label, minSdk, and ML Kit ProGuard rules
-        run: |
-          sed -i 's/android:label="sculpt"/android:label="SculpT"/g' android/app/src/main/AndroidManifest.xml
-          sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 21/g' android/app/build.gradle.kts || true
-          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 21/g' android/app/build.gradle || true
-          cat << 'PROGUARD' > android/app/proguard-rules.pro
-          -keep class com.google.mlkit.** { *; }
-          -keep class com.google.android.gms.** { *; }
-          -dontwarn com.google.mlkit.**
-          PROGUARD
+      - name: Set exact Android app label to SculpT
+        run: sed -i 's/android:label="sculpt"/android:label="SculpT"/g' android/app/src/main/AndroidManifest.xml
 
       - name: Get dependencies
         run: flutter pub get
@@ -37,8 +29,8 @@ jobs:
       - name: Generate Launcher Icons
         run: dart run flutter_launcher_icons
 
-      - name: Build Android APK (without stripping ML Kit native libs)
-        run: flutter build apk --release --no-shrink
+      - name: Build Android APK
+        run: flutter build apk --release
 
       - name: Build PWA Web App
         run: flutter build web --release --pwa-strategy=offline-first
