@@ -42,7 +42,7 @@ class ExerciseItem {
   final String targetMuscle;
   final String setsReps;
   final String purpose;
-  final String category; // 'Aesthetic' or 'Occupational'
+  final String category;
 
   const ExerciseItem({
     required this.name,
@@ -71,14 +71,14 @@ class GlassCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final baseColor = highlighted
-        ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: isDark ? 0.55 : 0.72)
+        ? Theme.of(context).colorScheme.primaryContainer.withValues(alpha: isDark ? 0.52 : 0.72)
         : (isDark
-            ? const Color(0xFF0B1416).withValues(alpha: 0.58)
-            : Colors.white.withValues(alpha: 0.74));
+            ? const Color(0xFF071012).withValues(alpha: 0.62)
+            : Colors.white.withValues(alpha: 0.76));
     final borderColor = highlighted
         ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.55)
         : (isDark
-            ? Colors.tealAccent.withValues(alpha: 0.18)
+            ? const Color(0xFF2DD4BF).withValues(alpha: 0.22)
             : const Color(0xFF0F766E).withValues(alpha: 0.22));
 
     return Container(
@@ -86,7 +86,7 @@ class GlassCard extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(18),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
           child: Container(
             padding: padding,
             decoration: BoxDecoration(
@@ -111,15 +111,11 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
-
-  // Physique Assessment Inputs (0.0 to 1.0 normalized markers)
   File? _selectedImage;
   double _shoulderMarker = 0.72;
   double _waistMarker = 0.52;
   double _postureSlouch = 0.40;
   double _lowerBodyBalance = 0.50;
-
-  // Occupational Profile
   String _selectedOccupation = 'Desk & Computer Work';
 
   final Map<String, Map<String, dynamic>> _occupations = {
@@ -226,7 +222,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ],
     },
   };
-
   Future<void> _pickPhoto(ImageSource source) async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: source, maxWidth: 1080);
@@ -333,32 +328,45 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Stack(
       children: [
-        // 1. Full-screen background showing the entire teal self-sculptor image
         Positioned.fill(
           child: Container(
-            color: isDark ? const Color(0xFF071113) : const Color(0xFFE6F2F1),
-            child: Image.asset(
-              'assets/sculpt_hero.png',
-              fit: BoxFit.contain,
-              alignment: Alignment.center,
+            color: isDark ? Colors.black : const Color(0xFFF0FDFA),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: isDark
+                  ? Image.asset(
+                      'assets/sculpt_icon.png',
+                      fit: BoxFit.contain,
+                      alignment: Alignment.center,
+                    )
+                  : ColorFiltered(
+                      colorFilter: const ColorFilter.matrix(<double>[
+                        -0.85, 0,     0,     0, 240,
+                        0,     -0.45, 0,     0, 253,
+                        0,     0,     -0.48, 0, 250,
+                        0,     0,     0,     0.35, 0,
+                      ]),
+                      child: Image.asset(
+                        'assets/sculpt_icon.png',
+                        fit: BoxFit.contain,
+                        alignment: Alignment.center,
+                      ),
+                    ),
             ),
           ),
         ),
-        // 2. Subtle theme-adaptive veil so foreground text stays legible in both Light & Dark themes
-        Positioned.fill(
-          child: Container(
-            color: isDark
-                ? Colors.black.withValues(alpha: 0.35)
-                : Colors.white.withValues(alpha: 0.38),
+        if (isDark)
+          Positioned.fill(
+            child: Container(
+              color: Colors.black.withValues(alpha: 0.25),
+            ),
           ),
-        ),
-        // 3. Translucent Scaffold, AppBar, and NavigationBar
         Scaffold(
           backgroundColor: Colors.transparent,
           appBar: AppBar(
             backgroundColor: isDark
-                ? const Color(0xFF0B1416).withValues(alpha: 0.65)
-                : Colors.white.withValues(alpha: 0.72),
+                ? Colors.black.withValues(alpha: 0.65)
+                : Colors.white.withValues(alpha: 0.75),
             elevation: 0,
             scrolledUnderElevation: 0,
             title: const Row(
@@ -376,8 +384,8 @@ class _HomeScreenState extends State<HomeScreen> {
               filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
               child: NavigationBar(
                 backgroundColor: isDark
-                    ? const Color(0xFF0B1416).withValues(alpha: 0.70)
-                    : Colors.white.withValues(alpha: 0.78),
+                    ? Colors.black.withValues(alpha: 0.72)
+                    : Colors.white.withValues(alpha: 0.80),
                 selectedIndex: _currentIndex,
                 onDestinationSelected: (idx) => setState(() => _currentIndex = idx),
                 destinations: const [
@@ -404,7 +412,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ],
     );
   }
-
   Widget _buildPhysiqueTab() {
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -434,19 +441,13 @@ class _HomeScreenState extends State<HomeScreen> {
                         top: 65,
                         left: 30,
                         right: 30,
-                        child: Container(
-                          height: 2,
-                          color: Colors.tealAccent.withValues(alpha: 0.85),
-                        ),
+                        child: Container(height: 2, color: Colors.tealAccent.withValues(alpha: 0.85)),
                       ),
                       Positioned(
                         top: 145,
                         left: 60,
                         right: 60,
-                        child: Container(
-                          height: 2,
-                          color: Colors.amberAccent.withValues(alpha: 0.85),
-                        ),
+                        child: Container(height: 2, color: Colors.amberAccent.withValues(alpha: 0.85)),
                       ),
                     ],
                   ),
@@ -520,8 +521,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-        // Bottom breathing room so you can scroll and admire the full statue base
-        const SizedBox(height: 140),
+        const SizedBox(height: 160),
       ],
     );
   }
@@ -550,15 +550,12 @@ class _HomeScreenState extends State<HomeScreen> {
       padding: const EdgeInsets.all(16),
       children: [
         GlassCard(
-          child: Column(
+          child: const Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Select Your Primary Daily Work',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 4),
-              const Text(
+              Text('Select Your Primary Daily Work', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              SizedBox(height: 4),
+              Text(
                 'We target muscles that either carry heavy daily fatigue or become weak from your work posture.',
                 style: TextStyle(fontSize: 13),
               ),
@@ -596,7 +593,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ],
           ),
         ),
-        const SizedBox(height: 140),
+        const SizedBox(height: 160),
       ],
     );
   }
@@ -662,7 +659,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           );
         }),
-        const SizedBox(height: 140),
+        const SizedBox(height: 160),
       ],
     );
   }
